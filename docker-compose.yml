@@ -1,0 +1,31 @@
+x-service: &common-dev-test
+  build:
+    context: .
+    target: build
+  env_file:
+    - .env
+  volumes:
+    - .:/src
+  working_dir: /src
+
+version: "3.6"
+services:
+  prod:
+    image: dhis2/goreq:${IMAGE_TAG:-latest}
+    build: .
+    ports:
+      - "8080:8080"
+
+  test:
+    <<: *common-dev-test
+    command: /bin/sh -c 'go test -v ./...'
+
+  dev-test:
+    <<: *common-dev-test
+    command: reflex -r "Dockerfile|\.go|\.yml$$" -s -- sh -c "go test -v ./..."
+
+  dev:
+    <<: *common-dev-test
+    ports:
+      - "8080:8080"
+    command: reflex -r "Dockerfile|\.go|\.yml$$" -s -- sh -c "go run ./cmd/goreq"
