@@ -1,11 +1,76 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
+	"io"
 	"log"
+	"net/http"
+	"net/url"
+	"os"
 )
 
 // @title goreq
 // @version 0.1.0
 func main() {
-	log.Println("Hello, World!")
+	b := readRequests()
+	requests := parseRequests(b)
+	doRequests(requests)
+}
+
+func readRequests() []byte {
+	var b []byte
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		input, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		b = input
+	} else {
+		log.Fatalln("cat requests.http | ./goreq")
+	}
+	return b
+}
+
+func parseRequests(b []byte) []*http.Request {
+	rawRequests := bytes.Split(b, []byte("###\n"))
+	requests := make([]*http.Request, len(rawRequests))
+	for i, rawRequest := range rawRequests {
+		newReader := bytes.NewReader(bytes.TrimPrefix(rawRequest, []byte("\n")))
+		request, err := http.ReadRequest(bufio.NewReader(newReader))
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		u, err := url.Parse(request.RequestURI)
+		if err != nil {
+			log.Fatalln(err)
+		}
+		request.URL = u
+		request.RequestURI = ""
+
+		requests[i] = request
+	}
+	return requests
+}
+
+func doRequests(requests []*http.Request) {
+	client := http.DefaultClient
+	for _, request := range requests {
+		log.Println(request.Method, request.URL)
+		response, err := client.Do(request)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		if response.StatusCode > 300 {
+			log.Println("Error:", response)
+			break
+		}
+
+		if b, err := io.ReadAll(response.Body); err == nil {
+			log.Println(string(bytes.TrimSpace(b)))
+		}
+	}
 }
