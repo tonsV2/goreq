@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"io"
 	"log"
 	"net/http"
@@ -10,12 +11,26 @@ import (
 	"os"
 )
 
+type outputOptions struct {
+	ShowHeaders *bool
+	ShowBody    *bool
+}
+
 // @title goreq
 // @version 0.1.0
 func main() {
+	showHeaders := flag.Bool("showHeaders", false, "Show HTTP response headers")
+	showBody := flag.Bool("showBody", true, "Show HTTP response body")
+	flag.Parse()
+
+	outputOptions := outputOptions{
+		ShowHeaders: showHeaders,
+		ShowBody:    showBody,
+	}
+
 	b := readRequests()
 	requests := parseRequests(b)
-	doRequests(requests)
+	doRequests(requests, outputOptions)
 }
 
 func readRequests() []byte {
@@ -55,7 +70,8 @@ func parseRequests(b []byte) []*http.Request {
 	return requests
 }
 
-func doRequests(requests []*http.Request) {
+// TODO: Should return []*http.Response
+func doRequests(requests []*http.Request, options outputOptions) {
 	client := http.DefaultClient
 	for _, request := range requests {
 		log.Println(request.Method, request.URL)
@@ -69,7 +85,11 @@ func doRequests(requests []*http.Request) {
 			break
 		}
 
-		if b, err := io.ReadAll(response.Body); err == nil {
+		if *options.ShowHeaders {
+			log.Printf("%+v", response.Header)
+		}
+
+		if b, err := io.ReadAll(response.Body); err == nil && *options.ShowBody {
 			log.Println(string(bytes.TrimSpace(b)))
 		}
 	}
