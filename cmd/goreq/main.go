@@ -13,19 +13,19 @@ import (
 
 type outputOptions struct {
 	ShowHeaders *bool
-	ShowBody    *bool
+	HideBody    *bool
 }
 
 // @title goreq
 // @version 0.1.0
 func main() {
 	showHeaders := flag.Bool("showHeaders", false, "Show HTTP response headers")
-	showBody := flag.Bool("showBody", true, "Show HTTP response body")
+	hideBody := flag.Bool("hideBody", false, "Don't display HTTP response body")
 	flag.Parse()
 
 	outputOptions := outputOptions{
 		ShowHeaders: showHeaders,
-		ShowBody:    showBody,
+		HideBody:    hideBody,
 	}
 
 	b := readRequests()
@@ -96,7 +96,7 @@ func displayResponses(responses []*http.Response, options outputOptions) {
 			log.Printf("%+v", response.Header)
 		}
 
-		if b, err := io.ReadAll(response.Body); err == nil && *options.ShowBody {
+		if b, err := io.ReadAll(response.Body); err == nil && !*options.HideBody {
 			log.Println(string(bytes.TrimSpace(b)))
 		}
 	}
