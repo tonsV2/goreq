@@ -30,7 +30,8 @@ func main() {
 
 	b := readRequests()
 	requests := parseRequests(b)
-	doRequests(requests, outputOptions)
+	responses := doRequests(requests)
+	displayResponses(responses, outputOptions)
 }
 
 func readRequests() []byte {
@@ -43,7 +44,7 @@ func readRequests() []byte {
 		}
 		b = input
 	} else {
-		log.Fatalln("cat requests.http | ./goreq")
+		log.Fatalln("Unable to read input from stdin")
 	}
 	return b
 }
@@ -70,16 +71,22 @@ func parseRequests(b []byte) []*http.Request {
 	return requests
 }
 
-// TODO: Should return []*http.Response
-func doRequests(requests []*http.Request, options outputOptions) {
+func doRequests(requests []*http.Request) []*http.Response {
 	client := http.DefaultClient
-	for _, request := range requests {
+	responses := make([]*http.Response, len(requests))
+	for i, request := range requests {
 		log.Println(request.Method, request.URL)
 		response, err := client.Do(request)
 		if err != nil {
 			log.Fatalln(err)
 		}
+		responses[i] = response
+	}
+	return responses
+}
 
+func displayResponses(responses []*http.Response, options outputOptions) {
+	for _, response := range responses {
 		if response.StatusCode > 300 {
 			log.Println("Error:", response)
 			break
