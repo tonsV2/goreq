@@ -5,8 +5,10 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"github.com/alecthomas/chroma/quick"
 	"io"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,16 +18,19 @@ import (
 type outputOptions struct {
 	HideHeaders *bool
 	HideBody    *bool
+	Raw         *bool
 }
 
 func main() {
 	hideHeaders := flag.Bool("hideHeaders", false, "Show HTTP response headers")
 	hideBody := flag.Bool("hideBody", false, "Don't display HTTP response body")
+	raw := flag.Bool("raw", false, "No syntax highlighting")
 	flag.Parse()
 
 	outputOptions := outputOptions{
-		HideHeaders: hideHeaders,
-		HideBody:    hideBody,
+		hideHeaders,
+		hideBody,
+		raw,
 	}
 
 	b := readRequests()
@@ -51,7 +56,8 @@ func readRequests() []byte {
 		return removeShebang(b)
 	}
 
-	_, _ = fmt.Fprintln(os.Stderr, "Unable to read request")
+	flag.Usage()
+	os.Exit(1)
 	return nil
 }
 
@@ -73,11 +79,13 @@ func parseRequests(b []byte) []*http.Request {
 		request, err := http.ReadRequest(bufio.NewReader(newReader))
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 
 		u, err := url.Parse(request.RequestURI)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 		request.URL = u
 		request.RequestURI = ""
@@ -94,6 +102,7 @@ func doRequests(requests []*http.Request) []*http.Response {
 		response, err := client.Do(request)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
 		responses[i] = response
 	}
@@ -120,8 +129,26 @@ func displayResponses(responses []*http.Response, options outputOptions) {
 		}
 		fmt.Println()
 
-		if b, err := io.ReadAll(response.Body); err == nil && !*options.HideBody {
-			fmt.Println(string(bytes.TrimSpace(b)))
+		b, err := io.ReadAll(response.Body)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+			return
+		}
+
+		if !*options.HideBody {
+			body := string(bytes.TrimSpace(b))
+			if *options.Raw {
+				fmt.Println(body)
+			} else {
+				contentType := response.Header["Content-Type"][0]
+				lexer := getLexer(contentType)
+				err := quick.Highlight(os.Stdout, body, lexer, "terminal", "monokai")
+				if err != nil {
+					_, _ = fmt.Fprintln(os.Stderr, err)
+					os.Exit(1)
+				}
+			}
 		}
 
 		if i < len(responses)-1 {
@@ -129,4 +156,15 @@ func displayResponses(responses []*http.Response, options outputOptions) {
 			fmt.Println()
 		}
 	}
+}
+
+func getLexer(contentType string) string {
+	mediatype, _, err := mime.ParseMediaType(contentType)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	split := strings.Split(mediatype, "/")
+	return split[1]
 }
