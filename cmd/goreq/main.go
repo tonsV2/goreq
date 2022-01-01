@@ -4,27 +4,27 @@ import (
 	"bufio"
 	"bytes"
 	"flag"
+	"fmt"
 	"io"
-	"log"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 )
 
 type outputOptions struct {
-	ShowHeaders *bool
+	HideHeaders *bool
 	HideBody    *bool
 }
 
-// @title goreq
-// @version 0.1.0
 func main() {
-	showHeaders := flag.Bool("showHeaders", false, "Show HTTP response headers")
+	hideHeaders := flag.Bool("hideHeaders", false, "Show HTTP response headers")
 	hideBody := flag.Bool("hideBody", false, "Don't display HTTP response body")
 	flag.Parse()
 
 	outputOptions := outputOptions{
-		ShowHeaders: showHeaders,
+		HideHeaders: hideHeaders,
 		HideBody:    hideBody,
 	}
 
@@ -35,18 +35,34 @@ func main() {
 }
 
 func readRequests() []byte {
-	var b []byte
 	stat, _ := os.Stdin.Stat()
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		input, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			log.Fatalln(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
-		b = input
-	} else {
-		log.Fatalln("Unable to read input from stdin")
+		return removeShebang(input)
 	}
-	return b
+
+	args := os.Args
+	filename := args[len(args)-1]
+	b, err := ioutil.ReadFile(filename)
+	if err == nil {
+		return removeShebang(b)
+	}
+
+	_, _ = fmt.Fprintln(os.Stderr, "Unable to read request")
+	return nil
+}
+
+func removeShebang(b []byte) []byte {
+	lines := strings.Split(string(b), "\n")
+	// Remove shebang
+	if strings.HasPrefix(lines[0], "#!") {
+		lines = lines[1 : len(lines)-1]
+	}
+	request := []byte(strings.Join(lines, "\n"))
+	return append(request, "\n\n"...)
 }
 
 func parseRequests(b []byte) []*http.Request {
@@ -56,12 +72,12 @@ func parseRequests(b []byte) []*http.Request {
 		newReader := bytes.NewReader(bytes.TrimPrefix(rawRequest, []byte("\n")))
 		request, err := http.ReadRequest(bufio.NewReader(newReader))
 		if err != nil {
-			log.Fatalln(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 
 		u, err := url.Parse(request.RequestURI)
 		if err != nil {
-			log.Fatalln(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 		request.URL = u
 		request.RequestURI = ""
@@ -75,10 +91,9 @@ func doRequests(requests []*http.Request) []*http.Response {
 	client := http.DefaultClient
 	responses := make([]*http.Response, len(requests))
 	for i, request := range requests {
-		log.Println(request.Method, request.URL)
 		response, err := client.Do(request)
 		if err != nil {
-			log.Fatalln(err)
+			_, _ = fmt.Fprintln(os.Stderr, err)
 		}
 		responses[i] = response
 	}
@@ -86,18 +101,32 @@ func doRequests(requests []*http.Request) []*http.Response {
 }
 
 func displayResponses(responses []*http.Response, options outputOptions) {
-	for _, response := range responses {
+	for i := 0; i < len(responses); i++ {
+		response := responses[i]
 		if response.StatusCode > 300 {
-			log.Println("Error:", response)
+			fmt.Println("Error:", response)
 			break
 		}
 
-		if *options.ShowHeaders {
-			log.Printf("%+v", response.Header)
+		fmt.Println(response.Proto, response.Status)
+
+		if !*options.HideHeaders {
+			headers := response.Header
+			for k, v := range headers {
+				for _, vv := range v {
+					fmt.Printf("%s: %s\n", k, vv)
+				}
+			}
 		}
+		fmt.Println()
 
 		if b, err := io.ReadAll(response.Body); err == nil && !*options.HideBody {
-			log.Println(string(bytes.TrimSpace(b)))
+			fmt.Println(string(bytes.TrimSpace(b)))
+		}
+
+		if i < len(responses)-1 {
+			fmt.Println("###")
+			fmt.Println()
 		}
 	}
 }

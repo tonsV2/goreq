@@ -1,3 +1,4 @@
+#!/usr/local/bin/goreq
 GET http://google.com HTTP/1.1
 Accept: application/json
 
