@@ -25,8 +25,8 @@ type options struct {
 }
 
 func main() {
-	hideHeaders := flag.Bool("hideHeaders", false, "Show HTTP response headers")
-	hideBody := flag.Bool("hideBody", false, "Don't display HTTP response body")
+	hideHeaders := flag.Bool("hideHeaders", false, "Hide HTTP response headers")
+	hideBody := flag.Bool("hideBody", false, "Hide HTTP response body")
 	raw := flag.Bool("raw", false, "No syntax highlighting")
 	failOnError := flag.Bool("failOnError", false, "Return HTTP status code if it's bigger than 300")
 	styles := flag.Bool("styles", false, "List all style options")
