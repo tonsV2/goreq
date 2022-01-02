@@ -33,32 +33,50 @@ func main() {
 		raw,
 	}
 
-	b := readRequests()
-	requests := parseRequests(b)
-	responses := doRequests(requests)
-	displayResponses(responses, outputOptions)
+	b, err := readRequests()
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	requests, err := parseRequests(b)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	responses, err := doRequests(requests)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	err = displayResponses(responses, outputOptions)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
-func readRequests() []byte {
+func readRequests() ([]byte, error) {
 	stat, _ := os.Stdin.Stat()
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		input, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
+			return nil, err
 		}
-		return removeShebang(input)
+		return removeShebang(input), nil
 	}
 
 	args := os.Args
 	filename := args[len(args)-1]
 	b, err := ioutil.ReadFile(filename)
 	if err == nil {
-		return removeShebang(b)
+		return removeShebang(b), nil
 	}
 
 	flag.Usage()
-	os.Exit(1)
-	return nil
+	return nil, nil
 }
 
 func removeShebang(b []byte) []byte {
@@ -71,45 +89,42 @@ func removeShebang(b []byte) []byte {
 	return append(request, "\n\n"...)
 }
 
-func parseRequests(b []byte) []*http.Request {
+func parseRequests(b []byte) ([]*http.Request, error) {
 	rawRequests := bytes.Split(b, []byte("###\n"))
 	requests := make([]*http.Request, len(rawRequests))
 	for i, rawRequest := range rawRequests {
 		newReader := bytes.NewReader(bytes.TrimPrefix(rawRequest, []byte("\n")))
 		request, err := http.ReadRequest(bufio.NewReader(newReader))
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return nil, err
 		}
 
 		u, err := url.Parse(request.RequestURI)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return nil, err
 		}
 		request.URL = u
 		request.RequestURI = ""
 
 		requests[i] = request
 	}
-	return requests
+	return requests, nil
 }
 
-func doRequests(requests []*http.Request) []*http.Response {
+func doRequests(requests []*http.Request) ([]*http.Response, error) {
 	client := http.DefaultClient
 	responses := make([]*http.Response, len(requests))
 	for i, request := range requests {
 		response, err := client.Do(request)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
+			return nil, err
 		}
 		responses[i] = response
 	}
-	return responses
+	return responses, nil
 }
 
-func displayResponses(responses []*http.Response, options outputOptions) {
+func displayResponses(responses []*http.Response, options outputOptions) error {
 	for i := 0; i < len(responses); i++ {
 		response := responses[i]
 		if response.StatusCode > 300 {
@@ -131,9 +146,7 @@ func displayResponses(responses []*http.Response, options outputOptions) {
 
 		b, err := io.ReadAll(response.Body)
 		if err != nil {
-			_, _ = fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-			return
+			return err
 		}
 
 		if !*options.HideBody {
@@ -142,11 +155,14 @@ func displayResponses(responses []*http.Response, options outputOptions) {
 				fmt.Println(body)
 			} else {
 				contentType := response.Header["Content-Type"][0]
-				lexer := getLexer(contentType)
-				err := quick.Highlight(os.Stdout, body, lexer, "terminal", "monokai")
+				lexer, err := getLexer(contentType)
 				if err != nil {
-					_, _ = fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
+					return err
+				}
+
+				err = quick.Highlight(os.Stdout, body, lexer, "terminal", "monokai")
+				if err != nil {
+					return err
 				}
 			}
 		}
@@ -156,15 +172,15 @@ func displayResponses(responses []*http.Response, options outputOptions) {
 			fmt.Println()
 		}
 	}
+	return nil
 }
 
-func getLexer(contentType string) string {
+func getLexer(contentType string) (string, error) {
 	mediatype, _, err := mime.ParseMediaType(contentType)
 	if err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return "", err
 	}
 
 	split := strings.Split(mediatype, "/")
-	return split[1]
+	return split[1], nil
 }
