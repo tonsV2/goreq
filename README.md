@@ -5,7 +5,7 @@ Define executable HTTP requests as text files
 ## Quick start
 
 ```sh
-make binary && cat requests.http | ./goreq
+make binary && cat ./examples/multiple.http | ./goreq
 ```
 
 ## Install
@@ -30,6 +30,7 @@ make dev
 
 ## TODO
 
+* Environment variables substitution - https://github.com/a8m/envsubst
 * Sanitize request
     * Allow missing http version
     * missing newlines

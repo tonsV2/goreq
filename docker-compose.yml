@@ -22,4 +22,4 @@ services:
 
   dev:
     <<: *common-dev-test
-    command: reflex -r "requests.http|Dockerfile|\.go|\.yml$$" -s -- sh -c "cat requests.http | go run ./cmd/goreq"
+    command: reflex -r "./examples/multiple.http|Dockerfile|\.go|\.yml$$" -s -- sh -c "cat ./examples/multiple.http | go run ./cmd/goreq"

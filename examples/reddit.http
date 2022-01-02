@@ -1,0 +1,2 @@
+#!/usr/local/bin/goreq
+GET https://reddit.com HTTP/1.1
