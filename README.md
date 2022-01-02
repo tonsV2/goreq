@@ -8,6 +8,11 @@ Define executable HTTP requests as text files
 make binary && cat requests.http | ./goreq
 ```
 
+## Install
+```sh
+make install
+```
+
 ## Executable script
 
 ```sh
