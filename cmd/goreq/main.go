@@ -19,18 +19,21 @@ type outputOptions struct {
 	HideHeaders *bool
 	HideBody    *bool
 	Raw         *bool
+	FailOnError *bool
 }
 
 func main() {
 	hideHeaders := flag.Bool("hideHeaders", false, "Show HTTP response headers")
 	hideBody := flag.Bool("hideBody", false, "Don't display HTTP response body")
 	raw := flag.Bool("raw", false, "No syntax highlighting")
+	failOnError := flag.Bool("failOnError", false, "Return HTTP status code if it's bigger than 300")
 	flag.Parse()
 
 	outputOptions := outputOptions{
 		hideHeaders,
 		hideBody,
 		raw,
+		failOnError,
 	}
 
 	b, err := readRequests()
@@ -45,7 +48,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	responses, err := doRequests(requests)
+	responses, err := doRequests(requests, outputOptions)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -111,7 +114,7 @@ func parseRequests(b []byte) ([]*http.Request, error) {
 	return requests, nil
 }
 
-func doRequests(requests []*http.Request) ([]*http.Response, error) {
+func doRequests(requests []*http.Request, options outputOptions) ([]*http.Response, error) {
 	client := http.DefaultClient
 	responses := make([]*http.Response, len(requests))
 	for i, request := range requests {
@@ -119,6 +122,11 @@ func doRequests(requests []*http.Request) ([]*http.Response, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		if response.StatusCode > 300 && *options.FailOnError {
+			os.Exit(response.StatusCode)
+		}
+
 		responses[i] = response
 	}
 	return responses, nil
