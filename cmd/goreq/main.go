@@ -31,7 +31,14 @@ func main() {
 	failOnError := flag.Bool("failOnError", false, "Return HTTP status code if it's bigger than 300")
 	styles := flag.Bool("styles", false, "List all style options")
 	style := flag.String("style", "monokai", "Specify output formatting style, use -styles to get a list of all options")
+	usage := flag.Bool("usage", false, "Show usage")
+	help := flag.Bool("help", false, "Show help")
 	flag.Parse()
+
+	if *usage || *help {
+		flag.PrintDefaults()
+		return
+	}
 
 	if *styles {
 		names := chromaStyles.Names()
