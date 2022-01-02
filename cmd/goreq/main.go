@@ -15,7 +15,7 @@ import (
 	"strings"
 )
 
-type outputOptions struct {
+type options struct {
 	HideHeaders *bool
 	HideBody    *bool
 	Raw         *bool
@@ -29,7 +29,7 @@ func main() {
 	failOnError := flag.Bool("failOnError", false, "Return HTTP status code if it's bigger than 300")
 	flag.Parse()
 
-	outputOptions := outputOptions{
+	opts := options{
 		hideHeaders,
 		hideBody,
 		raw,
@@ -48,13 +48,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	responses, err := doRequests(requests, outputOptions)
+	responses, err := doRequests(requests, opts)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	err = displayResponses(responses, outputOptions)
+	err = displayResponses(responses, opts)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -114,7 +114,7 @@ func parseRequests(b []byte) ([]*http.Request, error) {
 	return requests, nil
 }
 
-func doRequests(requests []*http.Request, options outputOptions) ([]*http.Response, error) {
+func doRequests(requests []*http.Request, opts options) ([]*http.Response, error) {
 	client := http.DefaultClient
 	responses := make([]*http.Response, len(requests))
 	for i, request := range requests {
@@ -123,7 +123,7 @@ func doRequests(requests []*http.Request, options outputOptions) ([]*http.Respon
 			return nil, err
 		}
 
-		if response.StatusCode > 300 && *options.FailOnError {
+		if response.StatusCode > 300 && *opts.FailOnError {
 			os.Exit(response.StatusCode)
 		}
 
@@ -132,7 +132,7 @@ func doRequests(requests []*http.Request, options outputOptions) ([]*http.Respon
 	return responses, nil
 }
 
-func displayResponses(responses []*http.Response, options outputOptions) error {
+func displayResponses(responses []*http.Response, opts options) error {
 	for i := 0; i < len(responses); i++ {
 		response := responses[i]
 		if response.StatusCode > 300 {
@@ -142,7 +142,7 @@ func displayResponses(responses []*http.Response, options outputOptions) error {
 
 		fmt.Println(response.Proto, response.Status)
 
-		if !*options.HideHeaders {
+		if !*opts.HideHeaders {
 			headers := response.Header
 			for k, v := range headers {
 				for _, vv := range v {
@@ -157,9 +157,9 @@ func displayResponses(responses []*http.Response, options outputOptions) error {
 			return err
 		}
 
-		if !*options.HideBody {
+		if !*opts.HideBody {
 			body := string(bytes.TrimSpace(b))
-			if *options.Raw {
+			if *opts.Raw {
 				fmt.Println(body)
 			} else {
 				contentType := response.Header["Content-Type"][0]
