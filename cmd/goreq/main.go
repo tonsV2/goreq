@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/alecthomas/chroma/quick"
+	chromaStyles "github.com/alecthomas/chroma/styles"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -20,6 +21,7 @@ type options struct {
 	HideBody    *bool
 	Raw         *bool
 	FailOnError *bool
+	Style       *string
 }
 
 func main() {
@@ -27,13 +29,22 @@ func main() {
 	hideBody := flag.Bool("hideBody", false, "Don't display HTTP response body")
 	raw := flag.Bool("raw", false, "No syntax highlighting")
 	failOnError := flag.Bool("failOnError", false, "Return HTTP status code if it's bigger than 300")
+	styles := flag.Bool("styles", false, "List all style options")
+	style := flag.String("style", "monokai", "Specify output formatting style, use -styles to get a list of all options")
 	flag.Parse()
+
+	if *styles {
+		names := chromaStyles.Names()
+		fmt.Println(strings.Join(names, "\n"))
+		return
+	}
 
 	opts := options{
 		hideHeaders,
 		hideBody,
 		raw,
 		failOnError,
+		style,
 	}
 
 	b, err := readRequests()
@@ -168,7 +179,7 @@ func displayResponses(responses []*http.Response, opts options) error {
 					return err
 				}
 
-				err = quick.Highlight(os.Stdout, body, lexer, "terminal", "monokai")
+				err = quick.Highlight(os.Stdout, body, lexer, "terminal", *opts.Style)
 				if err != nil {
 					return err
 				}
