@@ -32,4 +32,4 @@ clean:
 di:
 	wire gen ./internal/di
 
-.PHONY: binary docker-image push-docker-image dev test dev-test
+.PHONY: install docker-image push-docker-image dev test dev-test
