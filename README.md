@@ -12,7 +12,7 @@ make binary && cat requests.http | ./goreq
 
 ```sh
 echo """#!/usr/local/bin/goreq
-GET http://reddit.com HTTP/1.1""" > reddit.http
+GET https://reddit.com HTTP/1.1""" > reddit.http
 chmod +x reddit.http
 ./reddit.http
 ```
