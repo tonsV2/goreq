@@ -26,11 +26,6 @@ clean:
 	$(clean-cmd)
 	go clean
 
-swagger-docs:
-	swag init --parseDependency --parseDepth 2 -g ./cmd/goreq/main.go --output swagger/docs
-
-swagger: swagger-docs
-
 di:
 	wire gen ./internal/di
 
